@@ -1,10 +1,21 @@
 document.addEventListener('DOMContentLoaded', function() {
+  function logToBackground(message) {
+    chrome.runtime.sendMessage({log: message}, function(response) {
+      console.log('Background response:', response);
+    });
+  }
+
+  logToBackground('Popup DOMContentLoaded');
+
   let ipListDiv = document.getElementById('ip-list');
   let downloadBtn = document.getElementById('download-btn');
+  let mapBtn = document.getElementById('map-btn');
   let loadingDiv = document.getElementById('loading');
+  let mapDiv = document.getElementById('map');
 
   // Load IP addresses and display them
   chrome.storage.local.get({ips: []}, function(result) {
+    logToBackground('Fetched IPs: ' + JSON.stringify(result.ips));
     const ips = result.ips || [];
     ips.forEach(function(ip) {
       let ipElement = document.createElement('div');
@@ -15,6 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Function to batch IPs and fetch geolocation data
   async function fetchGeolocationData(ips) {
+    logToBackground('Fetching geolocation data for IPs: ' + JSON.stringify(ips));
     const batches = [];
     const batchSize = 100;
     for (let i = 0; i < ips.length; i += batchSize) {
@@ -35,6 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let batchData = await response.json();
         geoData.push(...batchData);
       } else {
+        logToBackground('Error fetching batch data, status: ' + response.status);
         console.error('Error fetching batch data, status:', response.status);
       }
     }
@@ -43,6 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Fetch geolocation data and download when the button is clicked
   downloadBtn.addEventListener('click', function() {
+    logToBackground('Download button clicked');
     chrome.storage.local.get({ips: []}, async function(result) {
       const ips = result.ips || [];
       if (ips.length === 0) {
@@ -74,6 +88,52 @@ document.addEventListener('DOMContentLoaded', function() {
         saveAs: true
       });
 
+      loadingDiv.style.display = 'none';
+    });
+  });
+
+  // Create a map with geolocation data when the map button is clicked
+  mapBtn.addEventListener('click', function() {
+    logToBackground('Map button clicked');
+    chrome.storage.local.get({ips: []}, async function(result) {
+      const ips = result.ips || [];
+      if (ips.length === 0) {
+        alert("No IPs to map.");
+        return;
+      }
+
+      loadingDiv.style.display = 'block';
+
+      const ipCounts = ips.reduce((acc, ip) => {
+        acc[ip] = (acc[ip] || 0) + 1;
+        return acc;
+      }, {});
+
+      const uniqueIps = Object.keys(ipCounts);
+      const geoData = await fetchGeolocationData(uniqueIps);
+
+      // Initialize the map in the view
+      mapDiv.style.height = "500px"; // Set a fixed height for the map
+      let map = L.map('map').setView([20, 0], 2); // Adjust the initial view
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      // Add red circles for each location
+      geoData.forEach(data => {
+        if (data.lat && data.lon) {
+          L.circle([data.lat, data.lon], {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.5,
+            radius: 50000
+          }).addTo(map);
+        }
+      });
+
+      map.invalidateSize(); // Ensure the map is fully rendered
       loadingDiv.style.display = 'none';
     });
   });
