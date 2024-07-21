@@ -5,7 +5,7 @@
     <style>
       body {
         width: 200px;
-        height: 240px;
+        height: 280px;
         font-family: Arial, sans-serif;
       }
       #ip-list {
@@ -15,12 +15,18 @@
         padding: 5px;
         margin-bottom: 10px;
       }
+      #loading {
+        display: none;
+        font-size: 14px;
+        color: red;
+      }
     </style>
   </head>
   <body>
     <h4>Logged IPs:</h4>
     <div id="ip-list"></div>
     <button id="download-btn">Download IPs</button>
+    <div id="loading">Loading...</div>
     <script src="popup.js"></script>
   </body>
 </html>
