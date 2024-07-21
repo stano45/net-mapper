@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "net-mapper",
+    "version": "1.0",
+    "permissions": [
+      "webRequest",
+      "webRequestBlocking",
+      "http://*/",
+      "https://*/"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "host_permissions": [
+      "http://*/",
+      "https://*/"
+    ],
+    "action": {
+      "default_popup": "popup.html"
+    }
+  }
+  
