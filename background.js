@@ -16,3 +16,7 @@ chrome.webRequest.onCompleted.addListener(
     { urls: ["<all_urls>"] }
   );
   
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  console.log('Received message:', message);
+  sendResponse({status: 'logged'});
+});

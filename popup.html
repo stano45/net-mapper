@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <link rel="stylesheet" href="libs/leaflet.css" />
     <title>IP Logger</title>
     <style>
       body {
-        width: 200px;
-        height: 280px;
+        width: 1000px;
+        height: 1000px;
         font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
       #ip-list {
         overflow-y: scroll;
@@ -20,13 +24,24 @@
         font-size: 14px;
         color: red;
       }
+      #map {
+        height: 400px; 
+        width: 100%;
+        border: 1px solid #ccc;
+      }
+      
     </style>
   </head>
   <body>
     <h4>Logged IPs:</h4>
     <div id="ip-list"></div>
     <button id="download-btn">Download IPs</button>
+    <button id="map-btn">Create Map</button>
     <div id="loading">Loading...</div>
+    <div id="map"></div>
+    <script src="libs/leaflet.js"></script>
+    <script src="libs/html2canvas.min.js"></script>
+    <script src="libs/leaflet.browser.print.min.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
