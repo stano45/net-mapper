@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>IP Logger</title>
+    <style>
+      body {
+        width: 200px;
+        height: 240px;
+        font-family: Arial, sans-serif;
+      }
+      #ip-list {
+        overflow-y: scroll;
+        height: 160px;
+        border: 1px solid #ccc;
+        padding: 5px;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h4>Logged IPs:</h4>
+    <div id="ip-list"></div>
+    <button id="download-btn">Download IPs</button>
+    <script src="popup.js"></script>
+  </body>
+</html>
