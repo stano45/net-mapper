@@ -1,20 +1,13 @@
 {
-    "manifest_version": 3,
-    "name": "IP Logger",
-    "version": "1.0",
-    "permissions": [
-      "webRequest",
-      "storage",
-      "downloads"
-    ],
-    "background": {
-      "service_worker": "background.js"
-    },
-    "host_permissions": [
-      "*://*/*"
-    ],
-    "action": {
-      "default_popup": "popup.html"
-    }
+  "manifest_version": 3,
+  "name": "net-mapper",
+  "version": "1.0",
+  "permissions": ["webRequest", "storage", "downloads"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": ["*://*/*"],
+  "action": {
+    "default_popup": "popup.html"
   }
-  
+}
