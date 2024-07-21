@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const geoData = [];
     for (let batch of batches) {
       let data = JSON.stringify(batch);
-      let response = await fetch('http://ip-api.com/batch', {
+      let response = await fetch('http://ip-api.com/batch?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query', {
         method: 'POST',
         body: data,
         headers: {
@@ -112,6 +112,9 @@ document.addEventListener('DOMContentLoaded', function() {
       const uniqueIps = Object.keys(ipCounts);
       const geoData = await fetchGeolocationData(uniqueIps);
 
+      geoData.forEach(data => {
+        data.count = ipCounts[data.query];
+      });
       // Initialize the map in the view
       mapDiv.style.height = "500px"; // Set a fixed height for the map
       let map = L.map('map').setView([20, 0], 2); // Adjust the initial view
@@ -121,15 +124,17 @@ document.addEventListener('DOMContentLoaded', function() {
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
 
-      // Add red circles for each location
+      // Add markers with click events for each location
       geoData.forEach(data => {
         if (data.lat && data.lon) {
-          L.circle([data.lat, data.lon], {
+          let marker = L.circle([data.lat, data.lon], {
             color: 'red',
             fillColor: '#f03',
             fillOpacity: 0.5,
-            radius: 50000
+            radius: 10000
           }).addTo(map);
+
+          marker.bindPopup(`<b>IP:</b> ${data.query}<br><b>Times Accessed:</b> ${data.count}<br><b>Location:</b> ${data.city}, ${data.country}<br><b>ISP:</b> ${data.isp}<br><b>Org:</b> ${data.org}<br><b>AS:</b> ${data.as}`);
         }
       });
 
