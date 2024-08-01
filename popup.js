@@ -105,9 +105,37 @@ function initializeMap(ipsMap) {
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(map);
 
+
+
   fetchAndMarkGeolocationData(ipsMap, map);
 
-  let refreshButton = L.Control.extend({
+  let CustomZoomControl = L.Control.Zoom.extend({
+    onAdd: function(map) {
+      let container = L.DomUtil.create('div', 'leaflet-control-zoom leaflet-bar leaflet-control');
+
+      this._zoomInButton = this._createButton('&#10133;', 'Zoom in', 'leaflet-control-zoom-in custom-zoom-in', container, this._zoomIn.bind(this));
+      this._zoomOutButton = this._createButton('&#10134;', 'Zoom out', 'leaflet-control-zoom-out custom-zoom-out', container, this._zoomOut.bind(this));
+
+      this._updateDisabled();
+      map.on('zoomend zoomlevelschange', this._updateDisabled, this);
+
+      return container;
+    },
+    _createButton: function(html, title, className, container, fn) {
+      let link = L.DomUtil.create('a', className, container);
+      link.innerHTML = html;
+      link.href = '#';
+      link.title = title;
+
+      L.DomEvent.on(link, 'click', L.DomEvent.stopPropagation)
+                .on(link, 'click', L.DomEvent.preventDefault)
+                .on(link, 'click', fn, this);
+
+      return link;
+    }
+  });
+
+  let RefreshButton = L.Control.extend({
     options: {
       position: 'topleft'
     },
@@ -122,7 +150,7 @@ function initializeMap(ipsMap) {
       container.style.textAlign = 'center';
       container.style.cursor = 'pointer';
       container.style.fontSize = '18px';
-      container.innerHTML = '&#8634;'; // Refresh symbol
+      container.innerHTML = '&#128260;'; // Refresh symbol
       container.title = 'Refresh the map data'; // Tooltip text
   
       container.onclick = function(){
@@ -135,7 +163,7 @@ function initializeMap(ipsMap) {
     }
   });
   
-  let downloadButton = L.Control.extend({
+  let DownloadButton = L.Control.extend({
     options: {
       position: 'topleft'
     },
@@ -150,7 +178,7 @@ function initializeMap(ipsMap) {
       container.style.textAlign = 'center';
       container.style.cursor = 'pointer';
       container.style.fontSize = '18px';
-      container.innerHTML = '&#8595;'; // Download symbol
+      container.innerHTML = '&#11015;&#65039;'; // Download symbol
       container.title = 'Download IP geolocation data'; // Tooltip text
   
       container.onclick = function(){
@@ -164,8 +192,11 @@ function initializeMap(ipsMap) {
     }
   });
   
-  map.addControl(new refreshButton());
-  map.addControl(new downloadButton());
+
+  map.zoomControl.remove();
+  map.addControl(new CustomZoomControl());
+  map.addControl(new RefreshButton());
+  map.addControl(new DownloadButton());
   
   map.invalidateSize();
 }
@@ -184,7 +215,7 @@ function fetchAndMarkGeolocationData(ipsMap, map) {
           color: 'red',
           fillColor: '#f03',
           fillOpacity: 0.5,
-          radius: 1000
+          radius: 2000,
         }).bindPopup(
           `<b>IP:</b> ${data.query}<br>
            <b>Times Accessed:</b> ${data.count}<br>
