@@ -7,7 +7,7 @@ net-mapper is a Chrome extension that visualizes the global destinations of your
 
 
 ## DISCLAIMER
-net-mapper connects to two external services: [OpenStreetMap](http://www.openstreetmap.org) for map tiles and [ip-api.com](https://ip-api.com) for geolocation data. This extension is not affiliated with OpenStreetMap or ip-api.com, and it does not take responsibility for the privacy practices of these services.
+net-mapper connects to two external services: [OpenStreetMap](http://www.openstreetmap.org) for map tiles and [ip-api.com](https://ip-api.com) for geolocation data. This extension is not affiliated with [OpenStreetMap](http://www.openstreetmap.org) or [ip-api.com](https://ip-api.com), and it does not take responsibility for the privacy practices of these services.
 
 All IP addresses logged by the extension are stored only in your local storage and are not shared or stored externally, ensuring that your browsing data stays private.
 
