@@ -191,12 +191,39 @@ function initializeMap(ipsMap) {
       return container;
     }
   });
+
+  let AboutControl = L.Control.extend({
+    options: {
+      position: 'topleft'
+    },
+
+    onAdd: function(map) {
+      let container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+
+      container.style.backgroundColor = 'white'; 
+      container.style.width = '30px';
+      container.style.height = '30px';
+      container.style.lineHeight = '30px';
+      container.style.textAlign = 'center';
+      container.style.cursor = 'pointer';
+      container.style.fontSize = '18px';
+      container.innerHTML = '&#8505;&#65039;';
+      container.title = 'About author';
+
+      container.onclick = function() {
+        window.open('https://kosorin.com', '_blank');
+      };
+
+      return container;
+    }
+  });
   
 
   map.zoomControl.remove();
   map.addControl(new CustomZoomControl());
   map.addControl(new RefreshButton());
   map.addControl(new DownloadButton());
+  map.addControl(new AboutControl());
   
   map.invalidateSize();
 }
