@@ -1,76 +1,37 @@
 import { fetchBatchData } from "./api.js";
+import { getStorageData, setStorageData } from "./utils.js";
 
-document.addEventListener("DOMContentLoaded", function () {
-  logToBackground("Popup DOMContentLoaded");
-  chrome.storage.local.get({ ips: {} }, function (result) {
-    const ips = result.ips || {};
-    initializeMap(ips);
-  });
+document.addEventListener("DOMContentLoaded", async function () {
+  const ips = await getStorageData("ips");
+  initializeMap(ips);
 });
 
 async function fetchGeolocationData(ipsMap) {
-  logToBackground(
-    "Fetching geolocation data for IPs: " + JSON.stringify(Object.keys(ipsMap))
-  );
-
-  let cachedData = {};
-  try {
-    cachedData = await new Promise((resolve, reject) => {
-      chrome.storage.local.get("geoDataCache", (result) => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(result.geoDataCache || {});
-        }
-      });
-    });
-  } catch (error) {
-    logToBackground("Error accessing chrome.storage.local: " + error.message);
-    console.error("Error accessing chrome.storage.local:", error);
-  }
-  logToBackground("cachedData: " + JSON.stringify(cachedData));
+  let cachedData = await getStorageData("geoDataCache");
 
   const geoData = [];
   const ipsToFetch = Object.keys(ipsMap).filter((ip) => !cachedData[ip]);
-  logToBackground("IPs to fetch: " + JSON.stringify(ipsToFetch));
 
-  if (ipsToFetch.length > 0) {
-    const batches = [];
-    const batchSize = 100;
-    for (let i = 0; i < ipsToFetch.length; i += batchSize) {
-      batches.push(ipsToFetch.slice(i, i + batchSize));
-    }
-
-    for (let batch of batches) {
-      const batchData = await fetchBatchData(batch);
-      if (batchData) {
-        geoData.push(...batchData);
-        batchData.forEach((item) => {
-          if (item.status === "success") {
-            cachedData[item.query] = item;
-            cachedData[item.query].count = ipsMap[item.query];
-          }
-        });
-      }
-    }
-
-    try {
-      await new Promise((resolve, reject) => {
-        chrome.storage.local.set({ geoDataCache: cachedData }, () => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve();
-          }
-        });
-      });
-    } catch (error) {
-      logToBackground("Error saving to chrome.storage.local: " + error.message);
-      console.error("Error saving to chrome.storage.local:", error);
-    }
-  } else {
-    logToBackground("No new IPs to fetch");
+  const batches = [];
+  const batchSize = 100;
+  for (let i = 0; i < ipsToFetch.length; i += batchSize) {
+    batches.push(ipsToFetch.slice(i, i + batchSize));
   }
+
+  for (let batch of batches) {
+    const batchData = await fetchBatchData(batch);
+    if (batchData) {
+      geoData.push(...batchData);
+      batchData.forEach((item) => {
+        if (item.status === "success") {
+          cachedData[item.query] = item;
+          cachedData[item.query].count = ipsMap[item.query];
+        }
+      });
+    }
+  }
+
+  await setStorageData("geoDataCache", cachedData);
 
   Object.keys(ipsMap).forEach((ip) => {
     if (cachedData[ip]) {
@@ -85,7 +46,6 @@ let markerLayer;
 
 function initializeMap(ipsMap) {
   if (Object.keys(ipsMap).length === 0) {
-    logToBackground("No IPs to map");
     return;
   }
 
@@ -98,13 +58,10 @@ function initializeMap(ipsMap) {
   }).addTo(map);
 
   void fetchAndMarkGeolocationData(ipsMap, map);
-  setInterval(
-    () =>
-      chrome.storage.local.get({ ips: {} }, function (result) {
-        void fetchAndMarkGeolocationData(result.ips || {}, map);
-      }),
-    5000
-  );
+  setInterval(async () => {
+    const ips = await getStorageData("ips");
+    void fetchAndMarkGeolocationData(ips, map);
+  }, 5000);
 
   let CustomZoomControl = L.Control.Zoom.extend({
     onAdd: function (map) {
@@ -165,13 +122,12 @@ function initializeMap(ipsMap) {
       container.style.textAlign = "center";
       container.style.cursor = "pointer";
       container.style.fontSize = "18px";
-      container.innerHTML = "&#128260;"; // Refresh symbol
-      container.title = "Refresh the map data"; // Tooltip text
+      container.innerHTML = "&#128260;";
+      container.title = "Refresh the map data";
 
-      container.onclick = function () {
-        chrome.storage.local.get({ ips: {} }, function (result) {
-          void fetchAndMarkGeolocationData(result.ips || {}, map);
-        });
+      container.onclick = async function () {
+        const ips = await getStorageData("ips");
+        void fetchAndMarkGeolocationData(ips, map);
       };
 
       return container;
@@ -196,14 +152,12 @@ function initializeMap(ipsMap) {
       container.style.textAlign = "center";
       container.style.cursor = "pointer";
       container.style.fontSize = "18px";
-      container.innerHTML = "&#11015;&#65039;"; // Download symbol
-      container.title = "Download IP geolocation data"; // Tooltip text
+      container.innerHTML = "&#11015;&#65039;";
+      container.title = "Download IP geolocation data";
 
-      container.onclick = function () {
-        chrome.storage.local.get({ ips: {} }, function (result) {
-          const ipsMap = result.ips || {};
-          void downloadIpGeolocationData(ipsMap);
-        });
+      container.onclick = async function () {
+        const ips = await getStorageData("ips");
+        void downloadIpGeolocationData(ipsMap);
       };
 
       return container;
@@ -338,11 +292,5 @@ function clearLocalStorageData() {
         markerLayer.clearLayers();
       }
     }
-  });
-}
-
-function logToBackground(message) {
-  chrome.runtime.sendMessage({ log: message }, function (response) {
-    console.log("Background response:", response);
   });
 }
