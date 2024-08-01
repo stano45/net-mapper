@@ -1,13 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
   logToBackground('Popup DOMContentLoaded');
 
-  let loadingDiv = document.getElementById('loading');
-
   chrome.storage.local.get({ips: []}, function(result) {
     const ips = result.ips || [];
-    loadingDiv.style.display = 'block';
     loadMapWithGeolocationData(ips);
-    loadingDiv.style.display = 'none';
   });
 
   downloadBtn.addEventListener('click', function() {
@@ -18,8 +14,6 @@ document.addEventListener('DOMContentLoaded', function() {
         alert("No IPs to download.");
         return;
       }
-
-      loadingDiv.style.display = 'block';
 
       const ipCounts = ips.reduce((acc, ip) => {
         acc[ip] = (acc[ip] || 0) + 1;
@@ -41,8 +35,6 @@ document.addEventListener('DOMContentLoaded', function() {
         filename: 'ip-geo.json',
         saveAs: true
       });
-
-      loadingDiv.style.display = 'none';
     });
   });
 });
@@ -260,7 +252,6 @@ function downloadIpGeolocationData(ips) {
       saveAs: true
     });
 
-    loadingDiv.style.display = 'none';
   }).catch(error => {
     console.error('Error fetching geolocation data:', error);
   });
