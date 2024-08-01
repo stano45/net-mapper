@@ -6,6 +6,9 @@ document.addEventListener("DOMContentLoaded", async function () {
   initializeMap(ips);
 });
 
+let markerLayer;
+let markersByIP = {};
+
 async function fetchGeolocationData(ipsMap) {
   let cachedData = await getStorageData("geoDataCache");
 
@@ -42,7 +45,6 @@ async function fetchGeolocationData(ipsMap) {
   return geoData;
 }
 
-let markerLayer;
 
 function initializeMap(ipsMap) {
   if (Object.keys(ipsMap).length === 0) {
@@ -193,15 +195,14 @@ function createControlButton(iconHtml, title, onClick) {
 }
 
 async function fetchAndMarkGeolocationData(ipsMap, map) {
-  if (markerLayer) {
-    markerLayer.clearLayers();
-  } else {
+  if (!markerLayer) {
     markerLayer = L.layerGroup().addTo(map);
   }
 
   const geoData = await fetchGeolocationData(ipsMap);
+
   geoData.forEach((data) => {
-    if (data.lat && data.lon) {
+    if (data.lat && data.lon && !markersByIP[data.query]) {
       let marker = L.circle([data.lat, data.lon], {
         color: "red",
         fillColor: "#f03",
@@ -210,7 +211,7 @@ async function fetchAndMarkGeolocationData(ipsMap, map) {
       }).bindPopup(
         `<b>IP:</b> ${data.query}<br>
           <b>Times Accessed:</b> ${data.count}<br>
-          <b>Location:</b> ${data.city}, ${data.country}, ${data.zip}<br>
+          <b>Location:</b> ${data.zip}, ${data.city}, ${data.country}<br>
           <b>ISP:</b> ${data.isp}<br>
           <b>Org:</b> ${data.org}<br>
           <b>Proxy:</b> ${data.proxy}<br>
@@ -218,6 +219,7 @@ async function fetchAndMarkGeolocationData(ipsMap, map) {
       );
 
       marker.addTo(markerLayer);
+      markersByIP[data.query] = marker;
     }
   });
 }
