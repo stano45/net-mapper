@@ -1,6 +1,7 @@
 {
   "manifest_version": 3,
   "name": "net-mapper",
+  "description": "Discover the global destinations of your internet traffic.",
   "version": "1.0",
   "permissions": ["webRequest", "storage", "downloads"],
   "background": {
@@ -8,6 +9,7 @@
   },
   "host_permissions": ["*://*/*"],
   "action": {
+    "default_title": "net-mapper",
     "default_popup": "popup.html"
   }
 }
