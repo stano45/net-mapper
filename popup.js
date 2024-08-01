@@ -108,6 +108,7 @@ function initializeMap(ipsMap) {
 
 
   fetchAndMarkGeolocationData(ipsMap, map);
+  setInterval(() => fetchAndMarkGeolocationData(ipsMap, map), 5000);
 
   let CustomZoomControl = L.Control.Zoom.extend({
     onAdd: function(map) {
