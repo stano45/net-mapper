@@ -111,10 +111,10 @@ function initializeMap(ipsMap) {
     options: {
       position: 'topleft'
     },
-
+  
     onAdd: function (map) {
       let container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-
+  
       container.style.backgroundColor = 'white'; 
       container.style.width = '30px';
       container.style.height = '30px';
@@ -122,27 +122,27 @@ function initializeMap(ipsMap) {
       container.style.textAlign = 'center';
       container.style.cursor = 'pointer';
       container.style.fontSize = '18px';
-
-      container.innerHTML = '&#8634;';
-
+      container.innerHTML = '&#8634;'; // Refresh symbol
+      container.title = 'Refresh the map data'; // Tooltip text
+  
       container.onclick = function(){
         chrome.storage.local.get({ips: {}}, function(result) {
-          fetchAndMarkGeolocationData(result.ips || {});
+          fetchAndMarkGeolocationData(result.ips || {}, map);
         });
       }
-
+  
       return container;
     }
   });
-
+  
   let downloadButton = L.Control.extend({
     options: {
       position: 'topleft'
     },
-
+  
     onAdd: function (map) {
       let container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-
+  
       container.style.backgroundColor = 'white'; 
       container.style.width = '30px';
       container.style.height = '30px';
@@ -150,22 +150,23 @@ function initializeMap(ipsMap) {
       container.style.textAlign = 'center';
       container.style.cursor = 'pointer';
       container.style.fontSize = '18px';
-
-      container.innerHTML = '&#8595;';
-
+      container.innerHTML = '&#8595;'; // Download symbol
+      container.title = 'Download IP geolocation data'; // Tooltip text
+  
       container.onclick = function(){
         chrome.storage.local.get({ips: {}}, function(result) {
           const ipsMap = result.ips || {};
           downloadIpGeolocationData(ipsMap);
         });
       }
-
+  
       return container;
     }
   });
-
+  
   map.addControl(new refreshButton());
   map.addControl(new downloadButton());
+  
   map.invalidateSize();
 }
 
@@ -183,7 +184,7 @@ function fetchAndMarkGeolocationData(ipsMap, map) {
           color: 'red',
           fillColor: '#f03',
           fillOpacity: 0.5,
-          radius: 10000
+          radius: 1000
         }).bindPopup(
           `<b>IP:</b> ${data.query}<br>
            <b>Times Accessed:</b> ${data.count}<br>
