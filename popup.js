@@ -94,7 +94,6 @@ let markerLayer;
 function initializeMap(ipsMap) {
   if (Object.keys(ipsMap).length === 0) {
     logToBackground('No IPs to map');
-    alert("No IPs to map.");
     return;
   }
 
@@ -108,7 +107,10 @@ function initializeMap(ipsMap) {
 
 
   fetchAndMarkGeolocationData(ipsMap, map);
-  setInterval(() => fetchAndMarkGeolocationData(ipsMap, map), 5000);
+  setInterval(() => 
+    chrome.storage.local.get({ips: {}}, function(result) {
+      fetchAndMarkGeolocationData(result.ips || {}, map);
+    }), 5000);
 
   let CustomZoomControl = L.Control.Zoom.extend({
     onAdd: function(map) {
@@ -288,7 +290,6 @@ function fetchAndMarkGeolocationData(ipsMap, map) {
 
 function downloadIpGeolocationData(ipsMap) {
   if (Object.keys(ipsMap).length === 0) {
-    alert("No IPs to download.");
     return;
   }
 
@@ -312,7 +313,7 @@ function downloadIpGeolocationData(ipsMap) {
 }
 
 function clearLocalStorageData(map) {
-  chrome.storage.local.clear(function() {
+  chrome.storage.local.remove(['geoDataCache', 'ips'], () => {
     if (chrome.runtime.lastError) {
       console.error('Error clearing local storage:', chrome.runtime.lastError);
     } else {
@@ -320,7 +321,6 @@ function clearLocalStorageData(map) {
       if (markerLayer) {
         markerLayer.clearLayers();
       }
-      alert("All data has been cleared.");
     }
   });
 }
