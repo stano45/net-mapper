@@ -1,3 +1,5 @@
+import { fetchBatchData } from "./api.js";
+
 document.addEventListener("DOMContentLoaded", function () {
   logToBackground("Popup DOMContentLoaded");
   chrome.storage.local.get({ ips: {} }, function (result) {
@@ -40,32 +42,15 @@ async function fetchGeolocationData(ipsMap) {
     }
 
     for (let batch of batches) {
-      let data = JSON.stringify(batch);
-      let response = await fetch(
-        "http://ip-api.com/batch?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query",
-        {
-          method: "POST",
-          body: data,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (response.ok) {
-        let batchData = await response.json();
+      const batchData = await fetchBatchData(batch);
+      if (batchData) {
         geoData.push(...batchData);
-
         batchData.forEach((item) => {
           if (item.status === "success") {
             cachedData[item.query] = item;
             cachedData[item.query].count = ipsMap[item.query];
           }
         });
-      } else {
-        logToBackground(
-          "Error fetching batch data, status: " + response.status
-        );
-        console.error("Error fetching batch data, status:", response.status);
       }
     }
 
@@ -217,7 +202,7 @@ function initializeMap(ipsMap) {
       container.onclick = function () {
         chrome.storage.local.get({ ips: {} }, function (result) {
           const ipsMap = result.ips || {};
-          downloadIpGeolocationData(ipsMap);
+          void downloadIpGeolocationData(ipsMap);
         });
       };
 
