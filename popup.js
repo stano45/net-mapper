@@ -104,68 +104,63 @@ function initializeMap(ipsMap) {
     },
   });
 
-  
-let RefreshButton = L.Control.extend({
-  options: {
-    position: "topleft",
-  },
-  onAdd: function (map) {
-    return createControlButton(
-      "&#128260;",
-      "Refresh the map data",
-      async function () {
-        const ips = await getStorageData("ips");
-        void fetchAndMarkGeolocationData(ips, map);
-      }
-    );
-  },
-});
+  let RefreshButton = L.Control.extend({
+    options: {
+      position: "topleft",
+    },
+    onAdd: function (map) {
+      return createControlButton(
+        "&#128260;",
+        "Refresh the map data",
+        async function () {
+          const ips = await getStorageData("ips");
+          void fetchAndMarkGeolocationData(ips, map);
+        }
+      );
+    },
+  });
 
-let DownloadButton = L.Control.extend({
-  options: {
-    position: "topleft",
-  },
-  onAdd: function (map) {
-    return createControlButton(
-      "&#11015;&#65039;",
-      "Download IP geolocation data",
-      async function () {
-        const ips = await getStorageData("ips");
-        void downloadIpGeolocationData(ipsMap);
-      }
-    );
-  },
-});
+  let DownloadButton = L.Control.extend({
+    options: {
+      position: "topleft",
+    },
+    onAdd: function (map) {
+      return createControlButton(
+        "&#11015;&#65039;",
+        "Download IP geolocation data",
+        async function () {
+          const ips = await getStorageData("ips");
+          void downloadIpGeolocationData(ipsMap);
+        }
+      );
+    },
+  });
 
-let ClearDataControl = L.Control.extend({
-  options: {
-    position: "topleft",
-  },
-  onAdd: function (map) {
-    return createControlButton(
-      "&#10060;",
-      "Clear all data",
-      function () {
+  let ClearDataControl = L.Control.extend({
+    options: {
+      position: "topleft",
+    },
+    onAdd: function (map) {
+      return createControlButton("&#10060;", "Clear all data", function () {
         clearLocalStorageData(map);
-      }
-    );
-  },
-});
+      });
+    },
+  });
 
-let AboutControl = L.Control.extend({
-  options: {
-    position: "topleft",
-  },
-  onAdd: function (map) {
-    return createControlButton(
-      "&#8505;&#65039;",
-      "About author",
-      function () {
-        window.open("https://kosorin.com", "_blank");
-      }
-    );
-  },
-});
+  let AboutControl = L.Control.extend({
+    options: {
+      position: "topleft",
+    },
+    onAdd: function (map) {
+      return createControlButton(
+        "&#8505;&#65039;",
+        "About author",
+        function () {
+          window.open("https://kosorin.com", "_blank");
+        }
+      );
+    },
+  });
 
   map.zoomControl.remove();
   map.addControl(new CustomZoomControl());
@@ -215,10 +210,11 @@ async function fetchAndMarkGeolocationData(ipsMap, map) {
       }).bindPopup(
         `<b>IP:</b> ${data.query}<br>
           <b>Times Accessed:</b> ${data.count}<br>
-          <b>Location:</b> ${data.city}, ${data.country}<br>
+          <b>Location:</b> ${data.city}, ${data.country}, ${data.zip}<br>
           <b>ISP:</b> ${data.isp}<br>
           <b>Org:</b> ${data.org}<br>
-          <b>AS:</b> ${data.as}`
+          <b>Proxy:</b> ${data.proxy}<br>
+          <b>Hosting:</b> ${data.hosting}<br>`
       );
 
       marker.addTo(markerLayer);
