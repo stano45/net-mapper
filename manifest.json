@@ -5,7 +5,8 @@
   "version": "1.0",
   "permissions": ["webRequest", "storage", "downloads"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "host_permissions": ["*://*/*"],
   "action": {

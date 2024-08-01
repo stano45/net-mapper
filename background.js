@@ -1,19 +1,18 @@
+import { getStorageData, setStorageData } from "./utils.js";
+
 chrome.webRequest.onCompleted.addListener(
-  function (details) {
+  async function (details) {
     const ip = details.ip;
-    if (ip) {
-      chrome.storage.local.get({ ips: {} }, function (result) {
-        let ips = result.ips || {};
-        if (ips[ip]) {
-          ips[ip] += 1;
-        } else {
-          ips[ip] = 1;
-        }
-        chrome.storage.local.set({ ips: ips }, function () {
-          console.log("IPs updated:", ips, ip);
-        });
-      });
+    if (!ip) {
+      return;
     }
+    let ips = await getStorageData("ips");
+    if (ips[ip]) {
+      ips[ip] += 1;
+    } else {
+      ips[ip] = 1;
+    }
+    await setStorageData("ips", ips);
   },
   { urls: ["<all_urls>"] }
 );

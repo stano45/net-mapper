@@ -1,91 +1,37 @@
-document.addEventListener("DOMContentLoaded", function () {
-  logToBackground("Popup DOMContentLoaded");
-  chrome.storage.local.get({ ips: {} }, function (result) {
-    const ips = result.ips || {};
-    initializeMap(ips);
-  });
+import { fetchBatchData } from "./api.js";
+import { getStorageData, setStorageData } from "./utils.js";
+
+document.addEventListener("DOMContentLoaded", async function () {
+  const ips = await getStorageData("ips");
+  initializeMap(ips);
 });
 
 async function fetchGeolocationData(ipsMap) {
-  logToBackground(
-    "Fetching geolocation data for IPs: " + JSON.stringify(Object.keys(ipsMap))
-  );
-
-  let cachedData = {};
-  try {
-    cachedData = await new Promise((resolve, reject) => {
-      chrome.storage.local.get("geoDataCache", (result) => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(result.geoDataCache || {});
-        }
-      });
-    });
-  } catch (error) {
-    logToBackground("Error accessing chrome.storage.local: " + error.message);
-    console.error("Error accessing chrome.storage.local:", error);
-  }
-  logToBackground("cachedData: " + JSON.stringify(cachedData));
+  let cachedData = await getStorageData("geoDataCache");
 
   const geoData = [];
   const ipsToFetch = Object.keys(ipsMap).filter((ip) => !cachedData[ip]);
-  logToBackground("IPs to fetch: " + JSON.stringify(ipsToFetch));
 
-  if (ipsToFetch.length > 0) {
-    const batches = [];
-    const batchSize = 100;
-    for (let i = 0; i < ipsToFetch.length; i += batchSize) {
-      batches.push(ipsToFetch.slice(i, i + batchSize));
-    }
-
-    for (let batch of batches) {
-      let data = JSON.stringify(batch);
-      let response = await fetch(
-        "http://ip-api.com/batch?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query",
-        {
-          method: "POST",
-          body: data,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (response.ok) {
-        let batchData = await response.json();
-        geoData.push(...batchData);
-
-        batchData.forEach((item) => {
-          if (item.status === "success") {
-            cachedData[item.query] = item;
-            cachedData[item.query].count = ipsMap[item.query];
-          }
-        });
-      } else {
-        logToBackground(
-          "Error fetching batch data, status: " + response.status
-        );
-        console.error("Error fetching batch data, status:", response.status);
-      }
-    }
-
-    try {
-      await new Promise((resolve, reject) => {
-        chrome.storage.local.set({ geoDataCache: cachedData }, () => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve();
-          }
-        });
-      });
-    } catch (error) {
-      logToBackground("Error saving to chrome.storage.local: " + error.message);
-      console.error("Error saving to chrome.storage.local:", error);
-    }
-  } else {
-    logToBackground("No new IPs to fetch");
+  const batches = [];
+  const batchSize = 100;
+  for (let i = 0; i < ipsToFetch.length; i += batchSize) {
+    batches.push(ipsToFetch.slice(i, i + batchSize));
   }
+
+  for (let batch of batches) {
+    const batchData = await fetchBatchData(batch);
+    if (batchData) {
+      geoData.push(...batchData);
+      batchData.forEach((item) => {
+        if (item.status === "success") {
+          cachedData[item.query] = item;
+          cachedData[item.query].count = ipsMap[item.query];
+        }
+      });
+    }
+  }
+
+  await setStorageData("geoDataCache", cachedData);
 
   Object.keys(ipsMap).forEach((ip) => {
     if (cachedData[ip]) {
@@ -100,7 +46,6 @@ let markerLayer;
 
 function initializeMap(ipsMap) {
   if (Object.keys(ipsMap).length === 0) {
-    logToBackground("No IPs to map");
     return;
   }
 
@@ -112,14 +57,11 @@ function initializeMap(ipsMap) {
       '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(map);
 
-  fetchAndMarkGeolocationData(ipsMap, map);
-  setInterval(
-    () =>
-      chrome.storage.local.get({ ips: {} }, function (result) {
-        fetchAndMarkGeolocationData(result.ips || {}, map);
-      }),
-    5000
-  );
+  void fetchAndMarkGeolocationData(ipsMap, map);
+  setInterval(async () => {
+    const ips = await getStorageData("ips");
+    void fetchAndMarkGeolocationData(ips, map);
+  }, 5000);
 
   let CustomZoomControl = L.Control.Zoom.extend({
     onAdd: function (map) {
@@ -162,126 +104,68 @@ function initializeMap(ipsMap) {
     },
   });
 
-  let RefreshButton = L.Control.extend({
-    options: {
-      position: "topleft",
-    },
+  
+let RefreshButton = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+  onAdd: function (map) {
+    return createControlButton(
+      "&#128260;",
+      "Refresh the map data",
+      async function () {
+        const ips = await getStorageData("ips");
+        void fetchAndMarkGeolocationData(ips, map);
+      }
+    );
+  },
+});
 
-    onAdd: function (map) {
-      let container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control leaflet-control-custom"
-      );
+let DownloadButton = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+  onAdd: function (map) {
+    return createControlButton(
+      "&#11015;&#65039;",
+      "Download IP geolocation data",
+      async function () {
+        const ips = await getStorageData("ips");
+        void downloadIpGeolocationData(ipsMap);
+      }
+    );
+  },
+});
 
-      container.style.backgroundColor = "white";
-      container.style.width = "30px";
-      container.style.height = "30px";
-      container.style.lineHeight = "30px";
-      container.style.textAlign = "center";
-      container.style.cursor = "pointer";
-      container.style.fontSize = "18px";
-      container.innerHTML = "&#128260;"; // Refresh symbol
-      container.title = "Refresh the map data"; // Tooltip text
-
-      container.onclick = function () {
-        chrome.storage.local.get({ ips: {} }, function (result) {
-          fetchAndMarkGeolocationData(result.ips || {}, map);
-        });
-      };
-
-      return container;
-    },
-  });
-
-  let DownloadButton = L.Control.extend({
-    options: {
-      position: "topleft",
-    },
-
-    onAdd: function (map) {
-      let container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control leaflet-control-custom"
-      );
-
-      container.style.backgroundColor = "white";
-      container.style.width = "30px";
-      container.style.height = "30px";
-      container.style.lineHeight = "30px";
-      container.style.textAlign = "center";
-      container.style.cursor = "pointer";
-      container.style.fontSize = "18px";
-      container.innerHTML = "&#11015;&#65039;"; // Download symbol
-      container.title = "Download IP geolocation data"; // Tooltip text
-
-      container.onclick = function () {
-        chrome.storage.local.get({ ips: {} }, function (result) {
-          const ipsMap = result.ips || {};
-          downloadIpGeolocationData(ipsMap);
-        });
-      };
-
-      return container;
-    },
-  });
-
-  let ClearDataControl = L.Control.extend({
-    options: {
-      position: "topleft",
-    },
-
-    onAdd: function (map) {
-      let container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control leaflet-control-custom"
-      );
-
-      container.style.backgroundColor = "white";
-      container.style.width = "30px";
-      container.style.height = "30px";
-      container.style.lineHeight = "30px";
-      container.style.textAlign = "center";
-      container.style.cursor = "pointer";
-      container.style.fontSize = "18px";
-      container.innerHTML = "&#10060;";
-      container.title = "Clear all data";
-
-      container.onclick = function () {
+let ClearDataControl = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+  onAdd: function (map) {
+    return createControlButton(
+      "&#10060;",
+      "Clear all data",
+      function () {
         clearLocalStorageData(map);
-      };
+      }
+    );
+  },
+});
 
-      return container;
-    },
-  });
-
-  let AboutControl = L.Control.extend({
-    options: {
-      position: "topleft",
-    },
-
-    onAdd: function (map) {
-      let container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control leaflet-control-custom"
-      );
-
-      container.style.backgroundColor = "white";
-      container.style.width = "30px";
-      container.style.height = "30px";
-      container.style.lineHeight = "30px";
-      container.style.textAlign = "center";
-      container.style.cursor = "pointer";
-      container.style.fontSize = "18px";
-      container.innerHTML = "&#8505;&#65039;";
-      container.title = "About author";
-
-      container.onclick = function () {
+let AboutControl = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+  onAdd: function (map) {
+    return createControlButton(
+      "&#8505;&#65039;",
+      "About author",
+      function () {
         window.open("https://kosorin.com", "_blank");
-      };
-
-      return container;
-    },
-  });
+      }
+    );
+  },
+});
 
   map.zoomControl.remove();
   map.addControl(new CustomZoomControl());
@@ -293,64 +177,77 @@ function initializeMap(ipsMap) {
   map.invalidateSize();
 }
 
-function fetchAndMarkGeolocationData(ipsMap, map) {
+function createControlButton(iconHtml, title, onClick) {
+  let container = L.DomUtil.create(
+    "div",
+    "leaflet-bar leaflet-control leaflet-control-custom"
+  );
+
+  container.style.backgroundColor = "white";
+  container.style.width = "30px";
+  container.style.height = "30px";
+  container.style.lineHeight = "30px";
+  container.style.textAlign = "center";
+  container.style.cursor = "pointer";
+  container.style.fontSize = "18px";
+  container.innerHTML = iconHtml;
+  container.title = title;
+  container.onclick = onClick;
+
+  return container;
+}
+
+async function fetchAndMarkGeolocationData(ipsMap, map) {
   if (markerLayer) {
     markerLayer.clearLayers();
   } else {
     markerLayer = L.layerGroup().addTo(map);
   }
 
-  fetchGeolocationData(ipsMap).then((geoData) => {
-    geoData.forEach((data) => {
-      if (data.lat && data.lon) {
-        let marker = L.circle([data.lat, data.lon], {
-          color: "red",
-          fillColor: "#f03",
-          fillOpacity: 0.5,
-          radius: 2000,
-        }).bindPopup(
-          `<b>IP:</b> ${data.query}<br>
-           <b>Times Accessed:</b> ${data.count}<br>
-           <b>Location:</b> ${data.city}, ${data.country}<br>
-           <b>ISP:</b> ${data.isp}<br>
-           <b>Org:</b> ${data.org}<br>
-           <b>AS:</b> ${data.as}`
-        );
+  const geoData = await fetchGeolocationData(ipsMap);
+  geoData.forEach((data) => {
+    if (data.lat && data.lon) {
+      let marker = L.circle([data.lat, data.lon], {
+        color: "red",
+        fillColor: "#f03",
+        fillOpacity: 0.5,
+        radius: 2000,
+      }).bindPopup(
+        `<b>IP:</b> ${data.query}<br>
+          <b>Times Accessed:</b> ${data.count}<br>
+          <b>Location:</b> ${data.city}, ${data.country}<br>
+          <b>ISP:</b> ${data.isp}<br>
+          <b>Org:</b> ${data.org}<br>
+          <b>AS:</b> ${data.as}`
+      );
 
-        marker.addTo(markerLayer);
-      }
-    });
+      marker.addTo(markerLayer);
+    }
   });
 }
 
-function downloadIpGeolocationData(ipsMap) {
+async function downloadIpGeolocationData(ipsMap) {
   if (Object.keys(ipsMap).length === 0) {
     return;
   }
 
-  fetchGeolocationData(ipsMap)
-    .then((geoData) => {
-      geoData.forEach((data) => {
-        data.count = ipsMap[data.query];
-      });
+  const geoData = await fetchGeolocationData(ipsMap);
+  geoData.forEach((data) => {
+    data.count = ipsMap[data.query];
+  });
+  const blob = new Blob([JSON.stringify(geoData, null, 2)], {
+    type: "application/json",
+  });
 
-      const blob = new Blob([JSON.stringify(geoData, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-
-      chrome.downloads.download({
-        url: url,
-        filename: "net_mapper_ip_geolocation_data.json",
-        saveAs: true,
-      });
-    })
-    .catch((error) => {
-      console.error("Error fetching geolocation data:", error);
-    });
+  const url = URL.createObjectURL(blob);
+  chrome.downloads.download({
+    url: url,
+    filename: "net_mapper_ip_geolocation_data.json",
+    saveAs: true,
+  });
 }
 
-function clearLocalStorageData(map) {
+function clearLocalStorageData() {
   chrome.storage.local.remove(["geoDataCache", "ips"], () => {
     if (chrome.runtime.lastError) {
       console.error("Error clearing local storage:", chrome.runtime.lastError);
@@ -360,11 +257,5 @@ function clearLocalStorageData(map) {
         markerLayer.clearLayers();
       }
     }
-  });
-}
-
-function logToBackground(message) {
-  chrome.runtime.sendMessage({ log: message }, function (response) {
-    console.log("Background response:", response);
   });
 }
