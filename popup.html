@@ -6,18 +6,11 @@
     <style>
       body {
         width: 1000px;
-        height: 1000px;
+        height: 550px;
         font-family: Arial, sans-serif;
         margin: 0;
         padding: 0;
         box-sizing: border-box;
-      }
-      #ip-list {
-        overflow-y: scroll;
-        height: 160px;
-        border: 1px solid #ccc;
-        padding: 5px;
-        margin-bottom: 10px;
       }
       #loading {
         display: none;
@@ -25,7 +18,7 @@
         color: red;
       }
       #map {
-        height: 400px; 
+        height: 500px; 
         width: 100%;
         border: 1px solid #ccc;
       }
@@ -33,8 +26,6 @@
     </style>
   </head>
   <body>
-    <h4>Logged IPs:</h4>
-    <div id="ip-list"></div>
     <button id="download-btn">Download IPs</button>
     <button id="map-btn">Create Map</button>
     <div id="loading">Loading...</div>
