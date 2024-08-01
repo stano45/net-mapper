@@ -1,41 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
   logToBackground('Popup DOMContentLoaded');
-
   chrome.storage.local.get({ips: []}, function(result) {
     const ips = result.ips || [];
     loadMapWithGeolocationData(ips);
-  });
-
-  downloadBtn.addEventListener('click', function() {
-    logToBackground('Download button clicked');
-    chrome.storage.local.get({ips: []}, async function(result) {
-      const ips = result.ips || [];
-      if (ips.length === 0) {
-        alert("No IPs to download.");
-        return;
-      }
-
-      const ipCounts = ips.reduce((acc, ip) => {
-        acc[ip] = (acc[ip] || 0) + 1;
-        return acc;
-      }, {});
-
-      const uniqueIps = Object.keys(ipCounts);
-      const geoData = await fetchGeolocationData(uniqueIps);
-
-      geoData.forEach(data => {
-        data.count = ipCounts[data.query];
-      });
-
-      const blob = new Blob([JSON.stringify(geoData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-
-      chrome.downloads.download({
-        url: url,
-        filename: 'ip-geo.json',
-        saveAs: true
-      });
-    });
   });
 });
 
