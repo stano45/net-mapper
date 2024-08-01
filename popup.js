@@ -104,123 +104,68 @@ function initializeMap(ipsMap) {
     },
   });
 
-  let RefreshButton = L.Control.extend({
-    options: {
-      position: "topleft",
-    },
-
-    onAdd: function (map) {
-      let container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control leaflet-control-custom"
-      );
-
-      container.style.backgroundColor = "white";
-      container.style.width = "30px";
-      container.style.height = "30px";
-      container.style.lineHeight = "30px";
-      container.style.textAlign = "center";
-      container.style.cursor = "pointer";
-      container.style.fontSize = "18px";
-      container.innerHTML = "&#128260;";
-      container.title = "Refresh the map data";
-
-      container.onclick = async function () {
+  
+let RefreshButton = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+  onAdd: function (map) {
+    return createControlButton(
+      "&#128260;",
+      "Refresh the map data",
+      async function () {
         const ips = await getStorageData("ips");
         void fetchAndMarkGeolocationData(ips, map);
-      };
+      }
+    );
+  },
+});
 
-      return container;
-    },
-  });
-
-  let DownloadButton = L.Control.extend({
-    options: {
-      position: "topleft",
-    },
-
-    onAdd: function (map) {
-      let container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control leaflet-control-custom"
-      );
-
-      container.style.backgroundColor = "white";
-      container.style.width = "30px";
-      container.style.height = "30px";
-      container.style.lineHeight = "30px";
-      container.style.textAlign = "center";
-      container.style.cursor = "pointer";
-      container.style.fontSize = "18px";
-      container.innerHTML = "&#11015;&#65039;";
-      container.title = "Download IP geolocation data";
-
-      container.onclick = async function () {
+let DownloadButton = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+  onAdd: function (map) {
+    return createControlButton(
+      "&#11015;&#65039;",
+      "Download IP geolocation data",
+      async function () {
         const ips = await getStorageData("ips");
         void downloadIpGeolocationData(ipsMap);
-      };
+      }
+    );
+  },
+});
 
-      return container;
-    },
-  });
-
-  let ClearDataControl = L.Control.extend({
-    options: {
-      position: "topleft",
-    },
-
-    onAdd: function (map) {
-      let container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control leaflet-control-custom"
-      );
-
-      container.style.backgroundColor = "white";
-      container.style.width = "30px";
-      container.style.height = "30px";
-      container.style.lineHeight = "30px";
-      container.style.textAlign = "center";
-      container.style.cursor = "pointer";
-      container.style.fontSize = "18px";
-      container.innerHTML = "&#10060;";
-      container.title = "Clear all data";
-
-      container.onclick = function () {
+let ClearDataControl = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+  onAdd: function (map) {
+    return createControlButton(
+      "&#10060;",
+      "Clear all data",
+      function () {
         clearLocalStorageData(map);
-      };
+      }
+    );
+  },
+});
 
-      return container;
-    },
-  });
-
-  let AboutControl = L.Control.extend({
-    options: {
-      position: "topleft",
-    },
-
-    onAdd: function (map) {
-      let container = L.DomUtil.create(
-        "div",
-        "leaflet-bar leaflet-control leaflet-control-custom"
-      );
-
-      container.style.backgroundColor = "white";
-      container.style.width = "30px";
-      container.style.height = "30px";
-      container.style.lineHeight = "30px";
-      container.style.textAlign = "center";
-      container.style.cursor = "pointer";
-      container.style.fontSize = "18px";
-      container.innerHTML = "&#8505;&#65039;";
-      container.title = "About author";
-
-      container.onclick = function () {
+let AboutControl = L.Control.extend({
+  options: {
+    position: "topleft",
+  },
+  onAdd: function (map) {
+    return createControlButton(
+      "&#8505;&#65039;",
+      "About author",
+      function () {
         window.open("https://kosorin.com", "_blank");
-      };
-
-      return container;
-    },
-  });
+      }
+    );
+  },
+});
 
   map.zoomControl.remove();
   map.addControl(new CustomZoomControl());
@@ -230,6 +175,26 @@ function initializeMap(ipsMap) {
   map.addControl(new AboutControl());
 
   map.invalidateSize();
+}
+
+function createControlButton(iconHtml, title, onClick) {
+  let container = L.DomUtil.create(
+    "div",
+    "leaflet-bar leaflet-control leaflet-control-custom"
+  );
+
+  container.style.backgroundColor = "white";
+  container.style.width = "30px";
+  container.style.height = "30px";
+  container.style.lineHeight = "30px";
+  container.style.textAlign = "center";
+  container.style.cursor = "pointer";
+  container.style.fontSize = "18px";
+  container.innerHTML = iconHtml;
+  container.title = title;
+  container.onclick = onClick;
+
+  return container;
 }
 
 async function fetchAndMarkGeolocationData(ipsMap, map) {
