@@ -192,6 +192,33 @@ function initializeMap(ipsMap) {
     }
   });
 
+  let ClearDataControl = L.Control.extend({
+    options: {
+      position: 'topleft'
+    },
+
+    onAdd: function(map) {
+      let container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+
+      container.style.backgroundColor = 'white'; 
+      container.style.width = '30px';
+      container.style.height = '30px';
+      container.style.lineHeight = '30px';
+      container.style.textAlign = 'center';
+      container.style.cursor = 'pointer';
+      container.style.fontSize = '18px';
+      container.innerHTML = '&#10060;';
+      container.title = 'Clear all data';
+
+      container.onclick = function() {
+        clearLocalStorageData(map);
+      };
+
+      return container;
+    }
+  });
+
+
   let AboutControl = L.Control.extend({
     options: {
       position: 'topleft'
@@ -217,12 +244,12 @@ function initializeMap(ipsMap) {
       return container;
     }
   });
-  
 
   map.zoomControl.remove();
   map.addControl(new CustomZoomControl());
   map.addControl(new RefreshButton());
   map.addControl(new DownloadButton());
+  map.addControl(new ClearDataControl());
   map.addControl(new AboutControl());
   
   map.invalidateSize();
@@ -280,6 +307,20 @@ function downloadIpGeolocationData(ipsMap) {
 
   }).catch(error => {
     console.error('Error fetching geolocation data:', error);
+  });
+}
+
+function clearLocalStorageData(map) {
+  chrome.storage.local.clear(function() {
+    if (chrome.runtime.lastError) {
+      console.error('Error clearing local storage:', chrome.runtime.lastError);
+    } else {
+      console.log('Local storage cleared.');
+      if (markerLayer) {
+        markerLayer.clearLayers();
+      }
+      alert("All data has been cleared.");
+    }
   });
 }
 
