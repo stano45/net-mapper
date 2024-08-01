@@ -112,11 +112,11 @@ function initializeMap(ipsMap) {
       '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(map);
 
-  fetchAndMarkGeolocationData(ipsMap, map);
+  void fetchAndMarkGeolocationData(ipsMap, map);
   setInterval(
     () =>
       chrome.storage.local.get({ ips: {} }, function (result) {
-        fetchAndMarkGeolocationData(result.ips || {}, map);
+        void fetchAndMarkGeolocationData(result.ips || {}, map);
       }),
     5000
   );
@@ -185,7 +185,7 @@ function initializeMap(ipsMap) {
 
       container.onclick = function () {
         chrome.storage.local.get({ ips: {} }, function (result) {
-          fetchAndMarkGeolocationData(result.ips || {}, map);
+          void fetchAndMarkGeolocationData(result.ips || {}, map);
         });
       };
 
@@ -293,64 +293,57 @@ function initializeMap(ipsMap) {
   map.invalidateSize();
 }
 
-function fetchAndMarkGeolocationData(ipsMap, map) {
+async function fetchAndMarkGeolocationData(ipsMap, map) {
   if (markerLayer) {
     markerLayer.clearLayers();
   } else {
     markerLayer = L.layerGroup().addTo(map);
   }
 
-  fetchGeolocationData(ipsMap).then((geoData) => {
-    geoData.forEach((data) => {
-      if (data.lat && data.lon) {
-        let marker = L.circle([data.lat, data.lon], {
-          color: "red",
-          fillColor: "#f03",
-          fillOpacity: 0.5,
-          radius: 2000,
-        }).bindPopup(
-          `<b>IP:</b> ${data.query}<br>
-           <b>Times Accessed:</b> ${data.count}<br>
-           <b>Location:</b> ${data.city}, ${data.country}<br>
-           <b>ISP:</b> ${data.isp}<br>
-           <b>Org:</b> ${data.org}<br>
-           <b>AS:</b> ${data.as}`
-        );
+  const geoData = await fetchGeolocationData(ipsMap);
+  geoData.forEach((data) => {
+    if (data.lat && data.lon) {
+      let marker = L.circle([data.lat, data.lon], {
+        color: "red",
+        fillColor: "#f03",
+        fillOpacity: 0.5,
+        radius: 2000,
+      }).bindPopup(
+        `<b>IP:</b> ${data.query}<br>
+          <b>Times Accessed:</b> ${data.count}<br>
+          <b>Location:</b> ${data.city}, ${data.country}<br>
+          <b>ISP:</b> ${data.isp}<br>
+          <b>Org:</b> ${data.org}<br>
+          <b>AS:</b> ${data.as}`
+      );
 
-        marker.addTo(markerLayer);
-      }
-    });
+      marker.addTo(markerLayer);
+    }
   });
 }
 
-function downloadIpGeolocationData(ipsMap) {
+async function downloadIpGeolocationData(ipsMap) {
   if (Object.keys(ipsMap).length === 0) {
     return;
   }
 
-  fetchGeolocationData(ipsMap)
-    .then((geoData) => {
-      geoData.forEach((data) => {
-        data.count = ipsMap[data.query];
-      });
+  const geoData = await fetchGeolocationData(ipsMap);
+  geoData.forEach((data) => {
+    data.count = ipsMap[data.query];
+  });
+  const blob = new Blob([JSON.stringify(geoData, null, 2)], {
+    type: "application/json",
+  });
 
-      const blob = new Blob([JSON.stringify(geoData, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-
-      chrome.downloads.download({
-        url: url,
-        filename: "net_mapper_ip_geolocation_data.json",
-        saveAs: true,
-      });
-    })
-    .catch((error) => {
-      console.error("Error fetching geolocation data:", error);
-    });
+  const url = URL.createObjectURL(blob);
+  chrome.downloads.download({
+    url: url,
+    filename: "net_mapper_ip_geolocation_data.json",
+    saveAs: true,
+  });
 }
 
-function clearLocalStorageData(map) {
+function clearLocalStorageData() {
   chrome.storage.local.remove(["geoDataCache", "ips"], () => {
     if (chrome.runtime.lastError) {
       console.error("Error clearing local storage:", chrome.runtime.lastError);
