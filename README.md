@@ -1,6 +1,6 @@
 # net-mapper
 
-net-mapper is a Chrome extension that visualizes the global destinations of your internet traffic. The extension logs the IP addresses of all servers your browser communicates with and displays them on a map, allowing you to see the physical locations of the servers hosting the websites you visit.
+net-mapper is a Chrome extension that visualizes the global destinations of your internet traffic. The extension logs the IP addresses of all servers your browser communicates with and displays them on an interactive map, allowing you to see the physical locations of the servers hosting the websites you visit.
 
 <img width="500" alt="net-mapper" src="https://github.com/user-attachments/assets/4daaf681-ab52-465a-9ee8-0a68709ba28b">
 
