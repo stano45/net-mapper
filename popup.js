@@ -1,39 +1,42 @@
 document.addEventListener('DOMContentLoaded', function() {
-  function logToBackground(message) {
-    chrome.runtime.sendMessage({log: message}, function(response) {
-      console.log('Background response:', response);
-    });
-  }
-
   logToBackground('Popup DOMContentLoaded');
-
-  let ipListDiv = document.getElementById('ip-list');
-  let downloadBtn = document.getElementById('download-btn');
-  let mapBtn = document.getElementById('map-btn');
-  let loadingDiv = document.getElementById('loading');
-  let mapDiv = document.getElementById('map');
-
-  // Load IP addresses and display them
-  chrome.storage.local.get({ips: []}, function(result) {
-    logToBackground('Fetched IPs: ' + JSON.stringify(result.ips));
-    const ips = result.ips || [];
-    ips.forEach(function(ip) {
-      let ipElement = document.createElement('div');
-      ipElement.textContent = ip;
-      ipListDiv.appendChild(ipElement);
-    });
+  chrome.storage.local.get({ips: {}}, function(result) {
+    const ips = result.ips || {};
+    initializeMap(ips);
   });
+});
 
-  // Function to batch IPs and fetch geolocation data
-  async function fetchGeolocationData(ips) {
-    logToBackground('Fetching geolocation data for IPs: ' + JSON.stringify(ips));
+async function fetchGeolocationData(ipsMap) {
+  logToBackground('Fetching geolocation data for IPs: ' + JSON.stringify(Object.keys(ipsMap)));
+
+  let cachedData = {};
+  try {
+    cachedData = await new Promise((resolve, reject) => {
+      chrome.storage.local.get('geoDataCache', (result) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(result.geoDataCache || {});
+        }
+      });
+    });
+  } catch (error) {
+    logToBackground('Error accessing chrome.storage.local: ' + error.message);
+    console.error('Error accessing chrome.storage.local:', error);
+  }
+  logToBackground("cachedData: " + JSON.stringify(cachedData));
+
+  const geoData = [];
+  const ipsToFetch = Object.keys(ipsMap).filter(ip => !cachedData[ip]);
+  logToBackground('IPs to fetch: ' + JSON.stringify(ipsToFetch));
+
+  if (ipsToFetch.length > 0) {
     const batches = [];
     const batchSize = 100;
-    for (let i = 0; i < ips.length; i += batchSize) {
-      batches.push(ips.slice(i, i + batchSize));
+    for (let i = 0; i < ipsToFetch.length; i += batchSize) {
+      batches.push(ipsToFetch.slice(i, i + batchSize));
     }
 
-    const geoData = [];
     for (let batch of batches) {
       let data = JSON.stringify(batch);
       let response = await fetch('http://ip-api.com/batch?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query', {
@@ -46,100 +49,184 @@ document.addEventListener('DOMContentLoaded', function() {
       if (response.ok) {
         let batchData = await response.json();
         geoData.push(...batchData);
+
+        batchData.forEach(item => {
+          if (item.status === 'success') {
+            cachedData[item.query] = item;
+            cachedData[item.query].count = ipsMap[item.query];
+          }
+        });
       } else {
         logToBackground('Error fetching batch data, status: ' + response.status);
         console.error('Error fetching batch data, status:', response.status);
       }
     }
-    return geoData;
+
+    try {
+      await new Promise((resolve, reject) => {
+        chrome.storage.local.set({ geoDataCache: cachedData }, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve();
+          }
+        });
+      });
+    } catch (error) {
+      logToBackground('Error saving to chrome.storage.local: ' + error.message);
+      console.error('Error saving to chrome.storage.local:', error);
+    }
+  } else {
+    logToBackground('No new IPs to fetch');
   }
 
-  // Fetch geolocation data and download when the button is clicked
-  downloadBtn.addEventListener('click', function() {
-    logToBackground('Download button clicked');
-    chrome.storage.local.get({ips: []}, async function(result) {
-      const ips = result.ips || [];
-      if (ips.length === 0) {
-        alert("No IPs to download.");
-        return;
-      }
-
-      loadingDiv.style.display = 'block';
-
-      const ipCounts = ips.reduce((acc, ip) => {
-        acc[ip] = (acc[ip] || 0) + 1;
-        return acc;
-      }, {});
-
-      const uniqueIps = Object.keys(ipCounts);
-      const geoData = await fetchGeolocationData(uniqueIps);
-
-      // Add counts to geoData
-      geoData.forEach(data => {
-        data.count = ipCounts[data.query];
-      });
-
-      const blob = new Blob([JSON.stringify(geoData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-
-      chrome.downloads.download({
-        url: url,
-        filename: 'ip-geo.json',
-        saveAs: true
-      });
-
-      loadingDiv.style.display = 'none';
-    });
+  Object.keys(ipsMap).forEach(ip => {
+    if (cachedData[ip]) {
+      geoData.push(cachedData[ip]);
+    }
   });
 
-  // Create a map with geolocation data when the map button is clicked
-  mapBtn.addEventListener('click', function() {
-    logToBackground('Map button clicked');
-    chrome.storage.local.get({ips: []}, async function(result) {
-      const ips = result.ips || [];
-      if (ips.length === 0) {
-        alert("No IPs to map.");
-        return;
+  return geoData;
+}
+
+let markerLayer;
+
+function initializeMap(ipsMap) {
+  if (Object.keys(ipsMap).length === 0) {
+    logToBackground('No IPs to map');
+    alert("No IPs to map.");
+    return;
+  }
+
+  let map = L.map('map').setView([20, 0], 2);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(map);
+
+  fetchAndMarkGeolocationData(ipsMap, map);
+
+  let refreshButton = L.Control.extend({
+    options: {
+      position: 'topleft'
+    },
+  
+    onAdd: function (map) {
+      let container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+  
+      container.style.backgroundColor = 'white'; 
+      container.style.width = '30px';
+      container.style.height = '30px';
+      container.style.lineHeight = '30px';
+      container.style.textAlign = 'center';
+      container.style.cursor = 'pointer';
+      container.style.fontSize = '18px';
+      container.innerHTML = '&#8634;'; // Refresh symbol
+      container.title = 'Refresh the map data'; // Tooltip text
+  
+      container.onclick = function(){
+        chrome.storage.local.get({ips: {}}, function(result) {
+          fetchAndMarkGeolocationData(result.ips || {}, map);
+        });
       }
+  
+      return container;
+    }
+  });
+  
+  let downloadButton = L.Control.extend({
+    options: {
+      position: 'topleft'
+    },
+  
+    onAdd: function (map) {
+      let container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+  
+      container.style.backgroundColor = 'white'; 
+      container.style.width = '30px';
+      container.style.height = '30px';
+      container.style.lineHeight = '30px';
+      container.style.textAlign = 'center';
+      container.style.cursor = 'pointer';
+      container.style.fontSize = '18px';
+      container.innerHTML = '&#8595;'; // Download symbol
+      container.title = 'Download IP geolocation data'; // Tooltip text
+  
+      container.onclick = function(){
+        chrome.storage.local.get({ips: {}}, function(result) {
+          const ipsMap = result.ips || {};
+          downloadIpGeolocationData(ipsMap);
+        });
+      }
+  
+      return container;
+    }
+  });
+  
+  map.addControl(new refreshButton());
+  map.addControl(new downloadButton());
+  
+  map.invalidateSize();
+}
 
-      loadingDiv.style.display = 'block';
+function fetchAndMarkGeolocationData(ipsMap, map) {
+  if (markerLayer) {
+    markerLayer.clearLayers();
+  } else {
+    markerLayer = L.layerGroup().addTo(map);
+  }
 
-      const ipCounts = ips.reduce((acc, ip) => {
-        acc[ip] = (acc[ip] || 0) + 1;
-        return acc;
-      }, {});
+  fetchGeolocationData(ipsMap).then(geoData => {
+    geoData.forEach(data => {
+      if (data.lat && data.lon) {
+        let marker = L.circle([data.lat, data.lon], {
+          color: 'red',
+          fillColor: '#f03',
+          fillOpacity: 0.5,
+          radius: 1000
+        }).bindPopup(
+          `<b>IP:</b> ${data.query}<br>
+           <b>Times Accessed:</b> ${data.count}<br>
+           <b>Location:</b> ${data.city}, ${data.country}<br>
+           <b>ISP:</b> ${data.isp}<br>
+           <b>Org:</b> ${data.org}<br>
+           <b>AS:</b> ${data.as}`
+        );
 
-      const uniqueIps = Object.keys(ipCounts);
-      const geoData = await fetchGeolocationData(uniqueIps);
-
-      geoData.forEach(data => {
-        data.count = ipCounts[data.query];
-      });
-      // Initialize the map in the view
-      mapDiv.style.height = "500px"; // Set a fixed height for the map
-      let map = L.map('map').setView([20, 0], 2); // Adjust the initial view
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
-
-      // Add markers with click events for each location
-      geoData.forEach(data => {
-        if (data.lat && data.lon) {
-          let marker = L.circle([data.lat, data.lon], {
-            color: 'red',
-            fillColor: '#f03',
-            fillOpacity: 0.5,
-            radius: 10000
-          }).addTo(map);
-
-          marker.bindPopup(`<b>IP:</b> ${data.query}<br><b>Times Accessed:</b> ${data.count}<br><b>Location:</b> ${data.city}, ${data.country}<br><b>ISP:</b> ${data.isp}<br><b>Org:</b> ${data.org}<br><b>AS:</b> ${data.as}`);
-        }
-      });
-
-      map.invalidateSize(); // Ensure the map is fully rendered
-      loadingDiv.style.display = 'none';
+        marker.addTo(markerLayer);
+      }
     });
   });
-});
+}
+
+function downloadIpGeolocationData(ipsMap) {
+  if (Object.keys(ipsMap).length === 0) {
+    alert("No IPs to download.");
+    return;
+  }
+
+  fetchGeolocationData(ipsMap).then(geoData => {
+    geoData.forEach(data => {
+      data.count = ipsMap[data.query];
+    });
+
+    const blob = new Blob([JSON.stringify(geoData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    chrome.downloads.download({
+      url: url,
+      filename: 'net_mapper_ip_geolocation_data.json',
+      saveAs: true
+    });
+
+  }).catch(error => {
+    console.error('Error fetching geolocation data:', error);
+  });
+}
+
+function logToBackground(message) {
+  chrome.runtime.sendMessage({log: message}, function(response) {
+    console.log('Background response:', response);
+  });
+}
