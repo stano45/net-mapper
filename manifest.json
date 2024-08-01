@@ -12,5 +12,10 @@
   "action": {
     "default_title": "net-mapper",
     "default_popup": "popup.html"
+  },
+  "icons": {
+    "256": "icon/globe-showing-europe-africa.256x256.png",
+    "512": "icon/globe-showing-europe-africa.512x512.png",
+    "1024": "icon/globe-showing-europe-africa.1024x1024.png"
   }
 }
